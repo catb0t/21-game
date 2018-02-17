@@ -127,7 +127,7 @@ M: computer play-21
     "q to quit" print
 
     [ <21-base-game> ]
-    [ <game-loop> ] bi
+    [ <game-loop> ] bi ! TODO: make these parameters?
 
     [ over play-next? [
             take-turn dup 21? [ announce-next ] when
