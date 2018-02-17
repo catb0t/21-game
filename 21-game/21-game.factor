@@ -5,7 +5,9 @@ sequences.interleaved threads ;
 QUALIFIED: pairs
 IN: 21-game
 
-CONSTANT: player-prompt-text "Add 1 or 2? "
+CONSTANT: computer-intro "\t<Computer>: "
+CONSTANT: you-intro "\t<You>: "
+CONSTANT: player1-prompt-text "Add 1 or 2? "
 CONSTANT: i-lose "I lose? It's impossible!"
 CONSTANT: you-lose "You lose! Numbers are my domain!"
 CONSTANT: max-turns-to-21 11
@@ -40,12 +42,19 @@ MACRO: printfl ( format-string -- quot )
 
 : 21? ( game -- 21? ) current>> 21 >= ;
 
-: computer-says ( -- ) "\t<Computer>: " writefl ;
-: you-say ( -- ) "\t<You>: " writefl ;
-
 : slow-dots ( -- ) "..." [ 1/5 sleep-sec "%c" printfl ] each 1/2 sleep-sec ;
 
 PRIVATE>
+
+GENERIC: human-prompt ( player -- )
+M: you human-prompt
+    drop player1-prompt-text writefl ;
+
+GENERIC: says ( who -- )
+M: computer says
+    drop computer-intro writefl ;
+M: you says
+    drop you-intro writefl ;
 
 GENERIC: <21-base-game> ( desc -- new-game )
 M: pair <21-base-game>
@@ -82,27 +91,27 @@ M: computer <game-loop>
         [ 2drop dup current>> ] 3tri
     ] if ;
 
-: your-prompt ( -- n )
-    player-prompt-text writefl read-you [
-        string>number dup { 1 2 } [ = ] with any? [ drop your-prompt ] unless
+:: your-prompt ( who -- n )
+    who human-prompt read-you [
+        string>number dup { 1 2 } member? [ drop who your-prompt ] unless
     ] [ skip ] if* ;
 
 : your-turn ( game who -- game )
-    your-prompt [ inc-score ] keep drop
-    you-say { "!" "." } random "%s%s\n" printfl ;
+    [ dup your-prompt [ inc-score ] keep drop ] keep says
+    { "!" "." } random "%s%s\n" printfl ;
 
 GENERIC: my-turn ( game who algo -- game )
 M: algo-lose my-turn
-    drop 2 inc-score
-    computer-says "%d.\n" printfl ;
+    drop [ 2 inc-score ] keep
+    says "%d.\n" printfl ;
 
 M: algo-cheat my-turn
     2drop 20 >>current
-    computer-says "20!" print ;
+    computer says "20!" print ;
 
 M: algo-random my-turn
-    drop { 1 2 } random [ inc-score ] keep swap
-    computer-says slow-dots
+    drop [ { 1 2 } random [ inc-score ] keep swap ] keep
+    says slow-dots
     "%d, "      printfl 3/4 sleep-sec
     "I guess. " writefl 1/4 sleep-sec
     "(%d)\n"    printfl ;
@@ -115,15 +124,11 @@ M: you take-turn
 
 GENERIC: win ( game who -- game )
 M: computer win
-    drop computer-says you-lose print ;
+    says you-lose print ;
 M: you win
-    drop computer-says i-lose print ;
+    drop computer says i-lose print ;
 
-GENERIC: play-21 ( against -- )
-M: you play-21
-    drop computer-says "You can't play against yourself!" print ;
-
-M: computer play-21
+: 21-game ( against -- )
     "q to quit" print
 
     [ <21-base-game> ]
@@ -135,6 +140,13 @@ M: computer play-21
             over announce-next? [ win skip-next ] [ drop ] if
         ] if
     ] each drop ;
+
+GENERIC: play-21 ( against -- )
+M: you play-21
+    drop computer says "You can't play against yourself!" print ;
+
+M: computer play-21
+    21-game ;
 
 : play-21-against-computer ( -- ) computer play-21 ;
 MAIN: play-21-against-computer

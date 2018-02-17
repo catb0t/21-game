@@ -5,7 +5,7 @@ SINGLETONS: algo-clever ;
 
 M: algo-clever my-turn
     2drop 20 >>current
-    computer-says "20!" print ;
+    computer says "20!" print ;
 
 M: computer take-turn
     algo-clever my-turn ;
