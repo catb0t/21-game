@@ -46,6 +46,12 @@ PREDICATE: game-over < 21-base-game
 PREDICATE: valid-human-input < integer
     addables member? ;
 
+PREDICATE: empty-sequence < sequence
+    empty? ;
+
+PREDICATE: quit-string < string
+    "q" = ;
+
 <PRIVATE
 : writefl ( str -- ) write flush ;
 MACRO: printfl ( format-string -- quot )
@@ -58,12 +64,21 @@ M: full-rest sleep-sec seconds sleep ;
 M: half-rest sleep-sec 2 / seconds sleep ;
 half-rest rest-time set-global
 
+GENERIC: interpret-read ( string -- string/f )
+M: quit-string interpret-read drop f ;
+M: f interpret-read ;
+M: string interpret-read ;
+
 : read-you ( -- something )
-    readln dup "q" = [ drop f ] when ;
+    readln interpret-read ;
 
-: 21? ( game -- 21? )  ;
+GENERIC: (slow-dots) ( string -- string )
+M: empty-sequence (slow-dots) ;
+M: string (slow-dots)
+    [ first 1/5 sleep-sec "%c" printfl ]
+    [ rest (slow-dots) ] bi ;
 
-: slow-dots ( -- ) "..." [ 1/5 sleep-sec "%c" printfl ] each 1/2 sleep-sec ;
+: slow-dots ( -- ) "..." (slow-dots) drop 1/2 sleep-sec ;
 
 : help. ( -- ) "q is quit" print ;
 : game-stats. ( game -- ) "stats\t" writefl ... ;
@@ -81,7 +96,7 @@ M: you says
 
 GENERIC: <21-base-game> ( desc -- new-game )
 M: pair <21-base-game>
-    [ { } 2array ] map >hashtable
+    first2 [ { } 2array ] bi@ 2array >hashtable
     [ 21-base-game new ] dip >>turn-hists ;
 
 M: computer <21-base-game>
@@ -115,13 +130,12 @@ DEFER: your-prompt
 GENERIC: your-choice ( who input -- n )
 M: f your-choice
     2drop skip ;
-
 M: string your-choice
     string>number your-choice ;
-
-M: valid-human-input your-choice nip ;
-
-M: integer your-choice drop your-prompt ;
+M: valid-human-input your-choice
+    nip ;
+M: integer your-choice
+    drop your-prompt ;
 
 : your-prompt ( who -- n )
     dup human-prompt read-you your-choice ;
@@ -176,15 +190,31 @@ M: announcing-game game-tick
 M: skipping-game game-tick
     drop ;
 
-: 21-game-loop ( game loop -- )
-    help. [ game-tick ] each game-stats. ;
+! boolean "OR" logic implemented with generics to avoid "if"
+DEFER: 21-game-loop
+<PRIVATE
+GENERIC#: (game-loop2) 1 ( game loop -- game loop )
+M: skipping-game (game-loop2) ;
+M: 21-base-game (game-loop2)
+    [ first game-tick ]
+    [ rest 21-game-loop ] bi ;
+
+GENERIC: (game-loop) ( game loop -- game loop )
+M: empty-sequence (game-loop)
+    (game-loop2) ;
+M: sequence (game-loop)
+    (game-loop2) ;
+PRIVATE>
+
+: 21-game-loop ( game loop -- game loop )
+    (game-loop) ;
 
 : game-against ( against -- game loop )
     [ <21-base-game> ]
     [ <game-loop> ] bi ;
 
 : 21-game ( against -- )
-    game-against 21-game-loop ;
+    help. game-against 21-game-loop drop game-stats. ;
 
 GENERIC: play-21 ( against -- )
 M: you play-21
